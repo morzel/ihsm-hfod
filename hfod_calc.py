@@ -728,8 +728,8 @@ class Func_current_period_days(Func):
         year_end = self.year
         month_end = self.f('gi_fiscalpe_num', region='wwf_obj')
         #print date(self.year)
-        df= date(self.year, month_end, 1)-relativedelta(months=PERIOD_TO_MONTHS[self.period]-1)
-        dt= date(self.year, month_end, 1)+relativedelta(months=1)-relativedelta(days=1)
+        df = date(self.year, month_end, 1)-relativedelta(months=PERIOD_TO_MONTHS[self.period]-1)
+        dt = date(self.year, month_end, 1)+relativedelta(months=1)-relativedelta(days=1)
         return 1+(dt-df).days
 
 
