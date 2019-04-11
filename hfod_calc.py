@@ -82,17 +82,6 @@ def process():
     # line items rendered info (category sort mostly?)
 
 
-PERIOD_TO_MONTHS = {
-    'q1': 3,
-    'q2': 3,
-    'q3': 3,
-    'q4': 3,
-    'yr': 12,
-    'm9': 9,
-    'h1': 6,
-}
-
-
 class NotMeaningful(Exception):
     pass
 
@@ -419,7 +408,12 @@ class ReportCalc:
                 ns['NotMeaningful'] = NotMeaningful
                 for x in globals():
                     if x.startswith('Func_'):
-                        ns[x[5:].upper()] = globals()[x](self.report[reg], reg, self.company, self.year, self.period, self.currency)
+                        ns[x[5:].upper()] = globals()[x](self.report[reg],
+                                                         reg,
+                                                         self.company,
+                                                         self.year,
+                                                         self.period,
+                                                         self.currency)
                     if x.startswith('Const_'):
                         ns[x[6:].upper()] = globals()[x]
                 err = None
@@ -441,7 +435,7 @@ class ReportCalc:
                 self.report[reg][dynamic_obj['field']] = Cell(field=dynamic_obj['field'], value=v, error=err)
                 #except NameError as e:
                 #    errors.append('Missing dependency: {}'.format(e.message)) #TODO errors
-        if errors != []:
+        if errors:
             logger.info(errors)
         return self.report
 
@@ -621,7 +615,6 @@ class Func:
             return self.region_obj[field].value if field in self.region_obj else ifnull
         else:
             return get_report(self.company, year, period, self.currency).get(region, {}).get(field, ifnull)
-        return report
 
     def __call__(self, whatever, param):
         raise Exception('not implemented')
@@ -727,8 +720,16 @@ class Func_current_period_days(Func):
         """
         year_end = self.year
         month_end = self.f('gi_fiscalpe_num', region='wwf_obj')
-        #print date(self.year)
-        df = date(self.year, month_end, 1)-relativedelta(months=PERIOD_TO_MONTHS[self.period]-1)
+        period_to_months = {
+            'q1': 3,
+            'q2': 3,
+            'q3': 3,
+            'q4': 3,
+            'yr': 12,
+            'm9': 9,
+            'h1': 6,
+        }
+        df = date(self.year, month_end, 1)-relativedelta(months=period_to_months[self.period]-1)
         dt = date(self.year, month_end, 1)+relativedelta(months=1)-relativedelta(days=1)
         return 1+(dt-df).days
 
