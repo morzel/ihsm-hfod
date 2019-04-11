@@ -11,9 +11,9 @@ from contextlib import contextmanager
 from copy import deepcopy
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
-from yaml import load as loadyaml
 import string
 import random
+import yaml
 
 
 def sid(things, id=None, for_query=True):
@@ -1386,4 +1386,4 @@ WWR:
   - RUCACNCI
   - EUROCNCI
 '''
-GEO = loadyaml(geo_yaml)
+GEO = yaml.load(geo_yaml, Loader=yaml.FullLoader)
