@@ -92,8 +92,8 @@ def process():
             d_obj['company_name'] = c.get('description')
             d_obj['named_parent_tree'] = c.get('d_obj', {}).get('named_parent_tree')
             d_obj['company_id'] = c.get('company_id')
-            #cvs = [v['v_num'] for v in r['fields']['v_obj'] if v['l']=='gi_currencycode']
-            #d_obj['currency'] = cvs[0] if len(cvs) else None
+            # cvs = [v['v_num'] for v in r['fields']['v_obj'] if v['l']=='gi_currencycode']
+            # d_obj['currency'] = cvs[0] if len(cvs) else None
         if d_obj != r['fields'].get('d_obj'):
             datastore.put_field(r['series_id'], 'd_obj', d_obj)
     # line items rendered info (category sort mostly?)
@@ -215,7 +215,7 @@ def trigger():
     logger.debug(xpr_load_adhoc_report('Mb2reVNb'))
 
 
-#@sjutils.expressionable()
+# @sjutils.expressionable()
 def xpr_load_adhoc_report(report_id):
     a = sjclient.get_series('HFOD\\AdHocReportConfigs\\{}'.format(report_id), fields=['*'])
     if a is None:
@@ -428,11 +428,11 @@ class ReportCalc:
                 except Exception as e:
                     v = None
                     err = '{}: {}'.format(e.__class__.__name__, e)
-                    #logger.exception(err)
-                    #put stacktrace into cell TODO
+                    # logger.exception(err)
+                    # put stacktrace into cell TODO
                 self.report[reg][dynamic_obj['field']] = Cell(field=dynamic_obj['field'], value=v, error=err)
-                #except NameError as e:
-                #    errors.append('Missing dependency: {}'.format(e.message)) #TODO errors
+                # except NameError as e:
+                #     errors.append('Missing dependency: {}'.format(e.message)) #TODO errors
         if errors:
             logger.info(errors)
         return self.report
@@ -626,7 +626,7 @@ class Func:
         else:
             return get_report(self.company, year, period, self.currency).get(region, {}).get(field, ifnull)
 
-    def __call__(self, whatever, param):
+    def __call__(self, *_):
         raise Exception('not implemented')
 
 
