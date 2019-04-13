@@ -29,19 +29,36 @@ def process():
     companies = list(sjclient.scroll(r'sid:hfod\companies peer_group=n', fields=['*']))
     last_finalized_company_reports = defaultdict(int)
     for s in sjclient.scroll(r'sid:hfod\reports period=yr', fields=['company', 'year'], scroll_batch_size=1000):
-        last_finalized_company_reports[s['fields']['company']] = max(last_finalized_company_reports[s['fields']['company']], int(s['fields']['year']))
+        last_finalized_company_reports[s['fields']['company']] = max(
+            last_finalized_company_reports[s['fields']['company']],
+            int(s['fields']['year'])
+        )
     last_finalized_company_reports_w_is_ni_reported_num = defaultdict(int)
-    for s in sjclient.scroll(r'sid:hfod\reports period=yr v_obj.l=is_ni_reported_num', fields=['company', 'year'], scroll_batch_size=1000):
-        last_finalized_company_reports_w_is_ni_reported_num[s['fields']['company']] = max(last_finalized_company_reports_w_is_ni_reported_num[s['fields']['company']], int(s['fields']['year']))
+    for s in sjclient.scroll(r'sid:hfod\reports period=yr v_obj.l=is_ni_reported_num',
+                             fields=['company', 'year'],
+                             scroll_batch_size=1000):
+        last_finalized_company_reports_w_is_ni_reported_num[s['fields']['company']] = max(
+            last_finalized_company_reports_w_is_ni_reported_num[s['fields']['company']],
+            int(s['fields']['year'])
+        )
     last_finalized_company_reports_w_ci_sum_num = defaultdict(int)
-    for s in sjclient.scroll(r'sid:hfod\reports period=yr v_obj.l=ci_sum_num', fields=['company', 'year'], scroll_batch_size=1000):
-        last_finalized_company_reports_w_ci_sum_num[s['fields']['company']] = max(last_finalized_company_reports_w_ci_sum_num[s['fields']['company']], int(s['fields']['year']))
+    for s in sjclient.scroll(r'sid:hfod\reports period=yr v_obj.l=ci_sum_num',
+                             fields=['company', 'year'],
+                             scroll_batch_size=1000):
+        last_finalized_company_reports_w_ci_sum_num[s['fields']['company']] = max(
+            last_finalized_company_reports_w_ci_sum_num[s['fields']['company']],
+            int(s['fields']['year'])
+        )
     for c in companies:
         cid = c['fields']['identifier']
         if cid not in last_finalized_company_reports:
             continue
         report_sid = 'HFOD\\Reports\\{}\\{}\\yr\\usd'.format(cid, last_finalized_company_reports[cid])
-        v_obj = {v['l']: v['v_num'] for v in sjclient.get_series('sid={}'.format(report_sid), fields=['v_obj'])['fields']['v_obj'] if v['r'] == 'WWF'}
+        v_obj = {
+            v['l']: v['v_num']
+            for v in sjclient.get_series('sid={}'.format(report_sid), fields=['v_obj'])['fields']['v_obj']
+            if v['r'] == 'WWF'
+        }
         flds = {
          'd_obj.last_gi_fiscalpe_num': int(v_obj.get('gi_fiscalpe_num')) if v_obj.get('gi_fiscalpe_num') else None,
          'd_obj.last_finalized_year': last_finalized_company_reports[cid] or None,
@@ -53,18 +70,22 @@ def process():
     return
     # lookups
     company_lu = {c['fields']['identifier']: c['fields'] for c in sjclient.scroll(sid('Companies'), fields=['*'])}
-    # companny rendered info
+    # company rendered info
     for c_id, c in company_lu.items():
         w = False
         d_obj = {}
         if 'parent_tree' in c:
-            named_parent_tree = u'\\'.join([company_lu.get(p_id, {'description': p_id}).get('description', p_id) for p_id in c['parent_tree'].split('\\')])
+            named_parent_tree = u'\\'.join([
+                company_lu.get(p_id, {'description': p_id}).get('description', p_id)
+                for p_id in c['parent_tree'].split('\\')
+            ])
             d_obj['named_parent_tree'] = named_parent_tree
         if d_obj != c.get('d_obj'):
             datastore.put_field(sid('Companies', c_id, for_query=False), 'd_obj', d_obj)
         c['d_obj'] = d_obj
     # reports rendered info
-    for r in sjclient.scroll(sid('Reports'), fields=['company', 'd_obj'], scroll_batch_size=10):  # TODO: shouldn't do  currency here! all we need is fields=['company','d_obj'] for now
+    # TODO: shouldn't do  currency here! all we need is fields=['company','d_obj'] for now
+    for r in sjclient.scroll(sid('Reports'), fields=['company', 'd_obj'], scroll_batch_size=10):
         d_obj = {}
         if r['fields']['company'] in company_lu:  # there's a company lookup!
             c = company_lu[r['fields']['company']]
@@ -81,10 +102,12 @@ def process():
 class NotMeaningful(Exception):
     pass
 
-### Callables
+# ------------------------------------
+# Callables
+# ------------------------------------
 @sjutils.callable
 def get_full_report():
-    """
+    r"""
     Gets report fields from Shooju and performs several necessary calcs on input HFOD\Report data;
     removes dynamic and non-leaf fields, applies special data structure, and adds geographic rollups.
     """
@@ -101,8 +124,10 @@ def save_line_item():
         settings.pop(do_not_save_field, None)
     with sjclient.register_job('save line item') as job:
         job.put_fields('HFOD\\LineItems\\{}'.format(settings['fields']['named_id']), settings['fields'])
-        if settings['delete_line_item'] and settings['delete_line_item'].lower() != settings['fields']['named_id'].lower():
-            job.delete('HFOD\\LineItems\\{}'.format(settings['delete_line_item']))  # TODO: - Dangerous! check for dependencies first
+        if settings['delete_line_item']:
+            if settings['delete_line_item'].lower() != settings['fields']['named_id'].lower():
+                # TODO: - Dangerous! check for dependencies first
+                job.delete('HFOD\\LineItems\\{}'.format(settings['delete_line_item']))
     return {'saved': True}
 
 
@@ -129,7 +154,9 @@ def preview_expression():
     company = settings['company']
     periodicity = settings['periodicity']
     # Store scroll query
-    q = 'sid:HFOD\\Reports company="{}"  period={} currency={}'.format(company, periodicity, settings.get('currency', 'usd'))
+    q = 'sid:HFOD\\Reports company="{}"  period={} currency={}'.format(company,
+                                                                       periodicity,
+                                                                       settings.get('currency', 'usd'))
     logger.debug('using query: {}'.format(q))
     results = []
     # For each report available for the company, period and currency specified...
@@ -160,10 +187,13 @@ def save_adhoc_report_config():
         if req_field not in settings['adhoc_report_config']:
             raise Exception('one of required fields is missing: {}'.format(', '.join(req_fields)))
         if 'periods_obj' not in settings['adhoc_report_config']:
-            if 'periods_num' not in settings['adhoc_report_config'] or 'periods_type' not in settings['adhoc_report_config']:
+            if ('periods_num' not in settings['adhoc_report_config']
+                    or 'periods_type' not in settings['adhoc_report_config']):
                 raise Exception('either periods_obj or periods_num+periods_type are required')
     if 'adhoc_report_config_id' not in settings:
-        adhoc_report_config_id = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(8))
+        adhoc_report_config_id = ''.join(
+            random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(8)
+        )
     else:
         adhoc_report_config_id = settings['adhoc_report_config_id']
     with sjclient.register_job('save adhoc report conf') as job:
@@ -271,7 +301,9 @@ def load_adhoc_report():
     return {'cells': cells}
 
 
-### end callables
+# ------------------------------------
+# End callables
+# ------------------------------------
 
 
 class Cell:
@@ -339,16 +371,19 @@ class ReportCalc:
         """
         computes dynamic line item values for all regions
         :param field: report with all dynamic line items and non-leaf regions removed
-        :return: report with rolled up values for ancestors of regions in input report, and all dynamic line items computed
+        :return: report with rolled up values for ancestors of regions in input report, and all dynamic line items
+            computed
         """
         dynamic_fields = sorted(get_dynamic_objs(self.period), key=dynamic_dependency_sorter)
-        if simulate_dynamic_obj:  # TODO: bit hacky .. should just use an actual name [i.e. inject into dynamic line items; just pass dynamic_fields in instead of simulate_dynamic_obj]
+        # TODO: bit hacky .. should just use an actual name [i.e. inject into dynamic line items;
+        #       just pass dynamic_fields in instead of simulate_dynamic_obj]
+        if simulate_dynamic_obj:
             simulate_dynamic_obj['field'] = '_'
             dynamic_fields.append(simulate_dynamic_obj)
         errors = []
         for reg in self.report.keys():
             for dynamic_obj in dynamic_fields:
-                ##### REQUIRED LINE ITEMS #####
+                # ==== REQUIRED LINE ITEMS ===
                 without_rollups = set()
                 if 'req' in dynamic_obj:
                     rollups_can_do = None
@@ -359,12 +394,14 @@ class ReportCalc:
                                 if rollups_can_do is None:
                                     rollups_can_do = set(self.report[reg][r].rolled_up_from.keys())
                                 else:
-                                    rollups_can_do = rollups_can_do.intersection(set(self.report[reg][r].rolled_up_from.keys()))
+                                    rollups_can_do = rollups_can_do.intersection(
+                                        set(self.report[reg][r].rolled_up_from.keys())
+                                    )
                                 for ru in self.report[reg][r].rolled_up_from.keys():
                                     all_rollups_seen.add(ru)
                     if rollups_can_do is not None and len(rollups_can_do) != len(all_rollups_seen):
                         without_rollups = all_rollups_seen-rollups_can_do
-                ##### / REQUIRED LINE ITEMS #####
+                # === / REQUIRED LINE ITEMS ===
                 ns = {f.field: f.value_without_rollups(without_rollups) for f in self.report[reg].values()}
                 ns['NotMeaningful'] = NotMeaningful
                 for x in globals():
@@ -380,7 +417,7 @@ class ReportCalc:
                 err = None
                 try:
                     if 'g' in dynamic_obj:
-                        ns['G'] = dotdict()
+                        ns['G'] = Dotdict()
                         exec(dynamic_obj['g'], ns)
                     v = eval(dynamic_obj['expr'][1:], ns)
                 except NotMeaningful as e:
@@ -402,11 +439,19 @@ class ReportCalc:
 
     def simulate_dynamic_obj(self, dynamic_obj):
         """Returns value for each region."""
-        return {region_obj: by_li['_'].value for region_obj, by_li in self.calc_report(simulate_dynamic_obj=dynamic_obj).items() if '_' in by_li and by_li['_'].value}
+        return {
+            region_obj: by_li['_'].value
+            for region_obj, by_li in self.calc_report(simulate_dynamic_obj=dynamic_obj).items()
+            if '_' in by_li and by_li['_'].value
+        }
 
     def simulate_dynamic_obj_for_ui(self, dynamic_obj):
         """"Returns value for each region in *for_ui* format."""
-        return {region_obj: by_li['_'].for_ui for region_obj, by_li in self.calc_report(simulate_dynamic_obj=dynamic_obj).items() if '_' in by_li}
+        return {
+            region_obj: by_li['_'].for_ui
+            for region_obj, by_li in self.calc_report(simulate_dynamic_obj=dynamic_obj).items()
+            if '_' in by_li
+        }
 
 
 @sjutils.memoize
@@ -472,7 +517,9 @@ def drop_non_leaf_fields(report):
     for line_item in unique_line_items:
         leaves = set()
         for region_name, descendants in region_names_with_descendants.items():
-            region_descendants_with_values = set([rn for rn in descendants if report.get(r2f(rn), {}).get(line_item) is not None])
+            region_descendants_with_values = set(
+                [rn for rn in descendants if report.get(r2f(rn), {}).get(line_item) is not None]
+            )
             # we know which regions this line item has values for... if the current region doesn't have any descendants
             # with a value, then we're a leaf!
             if len(region_descendants_with_values.intersection(region_names)) == 0:
@@ -514,7 +561,9 @@ def geo_calc(editable_fields):
 
     output = editable_fields
     for line_item in set([field for reg in editable_fields for field in editable_fields[reg]]):
-        leaf_keys = [field for field in editable_fields.keys() if field.endswith('_obj') and line_item in editable_fields[field]]
+        leaf_keys = [
+            field for field in editable_fields.keys() if field.endswith('_obj') and line_item in editable_fields[field]
+        ]
         leaves = set([f2r(leaf_key) for leaf_key in leaf_keys])
         output_regs = set()
         for leaf in leaves:
@@ -589,12 +638,14 @@ class Func_f(Func):
     def __call__(self, field, year=0, period=0, ifnull=None):
         """
         Return field value in specified period.
-        DOES NOT RE-RUN CALCULATIONS.  JUST GRABS STATIC NUMBERS.
 
-        field::name of field
-        year::default use current year; if period=="yr" becomes previous year; if <=50 treat like n_years_back; if period is int, subject to calculation
-        period::default previous period; if str, get period from specified year; if int, use as lookback from current period
-        ifnull::value to return if result is None
+        DOES NOT RE-RUN CALCULATIONS.  JUST GRABS STATIC NUMBERS.
+        :param field: name of field
+        :param year: default use current year; if period=="yr" becomes previous year; if <=50 treat like n_years_back;
+            if period is int, subject to calculation
+        :param period: default previous period; if str, get period from specified year; if int, use as lookback from
+            current period
+        :param ifnull: value to return if result is None
         """
         return self.f(field, year, period, ifnull)
 
@@ -799,7 +850,7 @@ def get_ancestors(node_name, anc_list=None):
     return anc_list
 
 
-class dotdict(dict):
+class Dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
